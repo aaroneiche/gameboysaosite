@@ -50,9 +50,9 @@ const DottingExample = (props:{currentColor: string}) => {
       width={350}
       height={350}
       isGridFixed={true}
+      isPanZoomable={false}
       initLayers={initialLayer}
       brushColor={props.currentColor}
-      
     />
   );
 };
