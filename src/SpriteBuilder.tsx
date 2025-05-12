@@ -1,6 +1,6 @@
 import { Dotting, useData, useDotting, useBrush } from "dotting";
 import type { DottingRef, PixelModifyItem, } from "dotting";
-
+import Navigation from "./Navigation";
 
 import {useState, useRef } from "react";
 
@@ -73,6 +73,7 @@ export default function SpriteBuilder() {
 
   return (
     <>
+      <Navigation/>
       <div> This is the sprite builder</div>
       <DottingExample currentColor={currentColor}/>
       {colorSelector}

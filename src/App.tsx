@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
-
-import { BrowserRouter as Router, Routes, Route, Link} from "react-router-dom";
+import Navigation from './Navigation'
+import { BrowserRouter as Router, Routes, Route} from "react-router-dom";
 import SpriteBuilder from './SpriteBuilder';
+
 
 function App() {
   const [count, setCount] = useState(0)
@@ -13,14 +12,7 @@ function App() {
   const MyPage = ()=>{
     return (
       <>
-        <div>
-          <a href="https://vite.dev" target="_blank">
-            <img src={viteLogo} className="logo" alt="Vite logo" />
-          </a>
-          <a href="https://react.dev" target="_blank">
-            <img src={reactLogo} className="logo react" alt="React logo" />
-          </a>
-        </div>
+      <Navigation/>
         <h1>Vite + React</h1>
         <div className="card">
           <button onClick={() => setCount((count) => count + 1)}>
@@ -29,8 +21,6 @@ function App() {
           <p>
             Edit <code>src/App.tsx</code> and save to test HMR
           </p>
-          <Link to="/other">Other</Link>
-          <Link to="/spritebuilder">Sprite Builder</Link>
         </div>
       </>
     );
@@ -39,15 +29,12 @@ function App() {
   const OtherPage = () => {
     return (
       <>
+        <Navigation/>
         <div>This is just a page. </div>
 
-        <Link to="/">Home</Link>
-        <Link to="/spritebuilder">Sprite Builder</Link>
       </>
     );
   }
-
-
 
   return (
     <Router>
