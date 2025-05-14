@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState} from 'react'
 import './App.css'
 import Navigation from './Navigation'
-import { BrowserRouter as Router, Routes, Route} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Outlet} from "react-router-dom";
 import SpriteBuilder from './SpriteBuilder';
+
 
 
 function App() {
@@ -12,7 +13,7 @@ function App() {
   const MyPage = ()=>{
     return (
       <>
-      <Navigation/>
+
         <h1>Vite + React</h1>
         <div className="card">
           <button onClick={() => setCount((count) => count + 1)}>
@@ -29,19 +30,33 @@ function App() {
   const OtherPage = () => {
     return (
       <>
-        <Navigation/>
+        
         <div>This is just a page. </div>
 
       </>
     );
   }
 
+
+
+  function Layout(){
+      return (
+        <>
+          <Navigation />
+          <Outlet />
+        </>
+      );
+  }
+
+
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<MyPage />}></Route>
-        <Route path="/other" element={<OtherPage />}></Route>
-        <Route path="/spritebuilder" element={<SpriteBuilder />}></Route>
+        <Route path="/" element={<Layout/>}>
+          <Route index element={<MyPage />} />
+          <Route path="/other" element={<OtherPage />} />
+          <Route path="/spritebuilder" element={<SpriteBuilder />} />
+        </Route>
       </Routes>
     </Router>
   );

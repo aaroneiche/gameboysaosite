@@ -1,9 +1,6 @@
 import { Dotting, useData, useDotting, useBrush } from "dotting";
 import type { DottingRef, PixelModifyItem, } from "dotting";
-import Navigation from "./Navigation";
-
-import {useState, useRef } from "react";
-
+import {useState, useRef, useEffect } from "react";
 
 const CreateEmptySquareData = (
   size: number,
@@ -20,35 +17,31 @@ const CreateEmptySquareData = (
 }; 
 
 
-const DottingExample = (props:{currentColor: string}) => {
-  
-  //CreateEmptySquareData(8)
+
+
+
+
+const PixelEditor = (props: { currentColor: string; dataCallback: Function }) => {
   const ref = useRef<DottingRef>(null);
-  
-  const { clear, setData } = useDotting(ref);
-  const { data, dataArray } = useData(ref);
-  const { changeBrushColor } = useBrush(ref);
 
-  // useEffect(() => {
-  //   console.log(dataArray);
-  // }, [dataArray]);
-
-  // useEffect(() => {
-  //   console.log(data);
-  // }, [data]);
-
+  const { dataArray } = useData(ref);
 
   const initialLayer = [
     {
       id: "layer1",
-      data: CreateEmptySquareData(8)
-    }];
+      data: CreateEmptySquareData(8),
+    },
+  ];
+
+  useEffect(() => {
+    props.dataCallback(dataArray)
+  }, [dataArray]);
 
   return (
     <Dotting
       ref={ref}
-      width={350}
-      height={350}
+      width={300}
+      height={300}
       isGridFixed={true}
       isPanZoomable={false}
       initLayers={initialLayer}
@@ -58,7 +51,6 @@ const DottingExample = (props:{currentColor: string}) => {
 };
 
 export default function SpriteBuilder() {
-
     const [currentColors] = useState<string[]>([
       "#FFFFFF",
       "#FF0000",
@@ -66,17 +58,50 @@ export default function SpriteBuilder() {
       "#0000FF",
     ]);
     
-    // const [currentColor,setCurrentColor] = useState<typeof currentColors[string]>(currentColors[1])
-    const [currentColor,setCurrentColor] = useState(currentColors[1])
+    const [currentColor, setCurrentColor] = useState(currentColors[1])
+    const colorSelector = currentColors.map(c=><button onClick={()=>{setCurrentColor(c)}}>
+      <div style={{backgroundColor:c, height: "20px", width:"20px"}}> </div>
+    </button>)
 
-    const colorSelector = currentColors.map(c=><button onClick={()=>{setCurrentColor(c)}}>{c}</button>)
+    const [spriteBytes, setSpriteBytes] = useState("--");
+
+
+    // function d2b(dec) {
+    //   // return (dec >>> 0).toString(2);
+    //   return dec.toString(2).padStart(8,'0');
+    // }
+
+
+    const processData = (input: Array<Array<PixelModifyItem>>) => {
+      const upperBytes: number[] = [0,0,0,0,0,0,0,0];
+      const lowerBytes: number[] = [0,0,0,0,0,0,0,0];
+
+      input.forEach((byte, b) => {
+        for (let i = 7; i >= 0; i--) {
+          const val = currentColors.indexOf(byte[i].color);
+          if (val >= 0) {
+            upperBytes[b] |= ((val & 2) >> 1) << (7 - i);
+            lowerBytes[b] |= (val & 1) << (7 - i);
+          } else {
+            upperBytes[b] |= 0;
+            lowerBytes[b] |= 0;
+          }
+        }
+      });
+      
+      setSpriteBytes([...lowerBytes, ...upperBytes].join(","))
+    };
 
   return (
     <>
-      <Navigation/>
       <div> This is the sprite builder</div>
-      <DottingExample currentColor={currentColor}/>
-      {colorSelector}
+      <div style={{ display: "flex" }}>
+        <PixelEditor currentColor={currentColor} dataCallback={processData} />
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {colorSelector}
+        </div>
+      </div>
+      <textarea name="spriteOutput" id="" value={spriteBytes}></textarea>
     </>
   );
 }
