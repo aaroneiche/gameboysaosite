@@ -16,11 +16,6 @@ const CreateEmptySquareData = (
   return data;
 }; 
 
-
-
-
-
-
 const PixelEditor = (props: { currentColor: string; dataCallback: Function }) => {
   const ref = useRef<DottingRef>(null);
 
@@ -51,57 +46,84 @@ const PixelEditor = (props: { currentColor: string; dataCallback: Function }) =>
 };
 
 export default function SpriteBuilder() {
-    const [currentColors] = useState<string[]>([
-      "#FFFFFF",
-      "#FF0000",
-      "#00FF00",
-      "#0000FF",
-    ]);
-    
-    const [currentColor, setCurrentColor] = useState(currentColors[1])
-    const colorSelector = currentColors.map(c=><button onClick={()=>{setCurrentColor(c)}}>
-      <div style={{backgroundColor:c, height: "20px", width:"20px"}}> </div>
-    </button>)
+  // RED = 0x00F8   #e6003a
+  // GREEN = 0xE007
+  // BLUE = 0x1F00    #001cc5
+  // WHITE = 0xFFFF
+  // BLACK = 0x0000
 
-    const [spriteBytes, setSpriteBytes] = useState("--");
+  type palette = string[];
+  type palettes = palette[];
+  const initialPalettes: palettes = [
+    ["#FFFFFF", "#FF0000", "#00FF00", "#0000FF"],
+    ["#FFFFFF", "#FFFB86", "#4E4D52", "#A9A861"],
+  ];
+
+  const palettes = useState<palettes>(initialPalettes);
+  const [currentPalette] = useState<palette>(initialPalettes[1]);
+  
+  const [currentColor, setCurrentColor] = useState<palette>(currentPalette);
+  
+  const colorSelector = currentPalette.map((c) => (
+    <button
+      onClick={() => {
+        setCurrentColor(c);
+      }}
+    >
+      <div style={{ backgroundColor: c, height: "20px", width: "60px" }}> </div>
+      {hexToBRG(c)}
+    </button>
+  ));
+
+  const [spriteBytes, setSpriteBytes] = useState<number[]>([]);
+  const formattedBytes = spriteBytes
+    .map((b) => {
+      return "0x" + b.toString(16).padStart(2, "0");
+    })
+    .join(", ");
 
 
-    // function d2b(dec) {
-    //   // return (dec >>> 0).toString(2);
-    //   return dec.toString(2).padStart(8,'0');
-    // }
+  function hexToBRG(color: string) {
+    const r = Math.round((Number(`0x${color.substring(1, 3)}`) / 255) * 31);
+    const g = Math.round((Number(`0x${color.substring(3, 5)}`) / 255) * 63);
+    const b = Math.round((Number(`0x${color.substring(5, 7)}`) / 255) * 31);
+    const rgb = (r << 11) | (g << 5) | b;
 
+    const rgb565 = rgb.toString(16).padStart(4,"0");
+    return `${rgb565.substring(2, 4)}${rgb565.substring(0, 2)}`;
+  }
 
-    const processData = (input: Array<Array<PixelModifyItem>>) => {
-      const upperBytes: number[] = [0,0,0,0,0,0,0,0];
-      const lowerBytes: number[] = [0,0,0,0,0,0,0,0];
+  const processData = (input: Array<Array<PixelModifyItem>>) => {
+    const upperBytes: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
+    const lowerBytes: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
 
-      input.forEach((byte, b) => {
-        for (let i = 7; i >= 0; i--) {
-          const val = currentColors.indexOf(byte[i].color);
-          if (val >= 0) {
-            upperBytes[b] |= ((val & 2) >> 1) << (7 - i);
-            lowerBytes[b] |= (val & 1) << (7 - i);
-          } else {
-            upperBytes[b] |= 0;
-            lowerBytes[b] |= 0;
-          }
+    input.forEach((byte, b) => {
+      for (let i = 7; i >= 0; i--) {
+        const val = currentPalette.indexOf(byte[i].color);
+        if (val >= 0) {
+          upperBytes[b] |= ((val & 2) >> 1) << (7 - i);
+          lowerBytes[b] |= (val & 1) << (7 - i);
+        } else {
+          upperBytes[b] |= 0;
+          lowerBytes[b] |= 0;
         }
-      });
-      
-      setSpriteBytes([...lowerBytes, ...upperBytes].join(","))
-    };
+      }
+    });
+
+    setSpriteBytes([...lowerBytes, ...upperBytes]);
+  };
 
   return (
     <>
       <div> This is the sprite builder</div>
+      <div id="paletteSelector"></div>
       <div style={{ display: "flex" }}>
         <PixelEditor currentColor={currentColor} dataCallback={processData} />
         <div style={{ display: "flex", flexDirection: "column" }}>
           {colorSelector}
         </div>
       </div>
-      <textarea name="spriteOutput" id="" value={spriteBytes}></textarea>
+      <textarea name="spriteOutput" id="" value={formattedBytes} style={{width: "296px", height: "70px"}}></textarea>
     </>
   );
 }
