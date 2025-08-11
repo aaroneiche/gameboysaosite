@@ -184,14 +184,10 @@ export default function SpriteBuilder() {
 
   const childRef = useRef(null);
 
-  const handleChangePixels = (arg) => {
-    childRef.current?.changePixelData(arg);
-
+  const handleChangePixels = (pixelData) => {
+    childRef.current?.changePixelData(pixelData);
   }
 
-
-  const test = CreateEmptySquareData(8);
-  
   const [textContents, setTextContents] = useState("");
 
   useEffect(()=>{
