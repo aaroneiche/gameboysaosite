@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Pico USB Serial ↔ I²C Bridge</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --pad: 12px; }
+    body { font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 920px; margin: 24px auto; padding: 0 12px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; align-items: center; }
+    button { padding: 8px 12px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    input, textarea { font: inherit; }
+    input[type="number"] { width: 120px; }
+    textarea { width: 100%; height: 260px; }
+    fieldset { border: 1px solid #ddd; border-radius: 12px; padding: var(--pad); margin: 12px 0; }
+    legend { padding: 0 6px; }
+    .status { margin-left: 8px; font-weight: 600; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>Pico USB Serial ↔ I²C Bridge</h1>
+
+  <div class="row">
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <span id="status" class="status">Not connected</span>
+  </div>
+
+  <fieldset>
+    <legend>I²C helpers</legend>
+    <div class="row">
+      <label>Addr (7-bit dec): <input id="addr" type="number" min="0" max="127" value="72"></label>
+      <label>Reg (dec): <input id="reg" type="number" min="0" max="255" value="0"></label>
+    </div>
+    <div class="row">
+      <input id="dataHex" class="mono" style="flex:1" placeholder="Data bytes hex (e.g. 01 02 0A FF)">
+    </div>
+    <div class="row">
+      <button id="btnWrite" disabled>i2c_write</button>
+      <label>Read length: <input id="readLen" type="number" min="1" max="256" value="4"></label>
+      <button id="btnRead" disabled>i2c_read</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Incoming (JSON lines from Pico)</legend>
+    <textarea id="log" class="mono" readonly></textarea>
+    <div class="row">
+      <button id="clearLog">Clear log</button>
+      <label><input id="autoscroll" type="checkbox" checked> Autoscroll</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Send raw JSON</legend>
+    <div class="row">
+      <input id="raw" class="mono" style="flex:1" placeholder='e.g. {"op":"ping"}'>
+      <button id="sendRaw" disabled>Send</button>
+    </div>
+  </fieldset>
+
+
+  <script>
+    let port, reader, writer;
+    let readAbort = null;
+
+    const $ = id => document.getElementById(id);
+    const autoscroll = () => $("autoscroll").checked;
+
+    const log = (line) => {
+      const el = $("log");
+      el.value += (typeof line === "string" ? line : JSON.stringify(line)) + "\n";
+      if (autoscroll()) el.scrollTop = el.scrollHeight;
+    };
+
+    async function openPort() {
+      if (!("serial" in navigator)) {
+        alert("Web Serial not available. Use a Chromium browser over HTTPS or localhost.");
+        return;
+      }
+
+      // Let the user pick the Pico's CDC device. (Optional: filter by VID 0x2e8a)
+      port = await navigator.serial.requestPort(/* { filters: [{ usbVendorId: 0x2e8a }] } */);
+      await port.open({ baudRate: 115200 });
+
+      // Assert DTR/RTS to keep CDC up on MicroPython
+      try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); } catch {}
+
+      // Tiny settle
+      await new Promise(r => setTimeout(r, 50));
+
+      writer = port.writable.getWriter();
+      reader = port.readable.getReader();
+      readAbort = new AbortController();
+
+      $("connect").disabled = true;
+      $("disconnect").disabled = false;
+      $("sendRaw").disabled = false;
+      $("btnWrite").disabled = false;
+      $("btnRead").disabled = false;
+      $("status").textContent = "Connected";
+      log("Connected.");
+
+      readLoop();
+    }
+
+    async function readLoop() {
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          let idx;
+          while ((idx = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, idx).trim();
+            buffer = buffer.slice(idx + 1);
+            if (!line) continue;
+            try {
+              const obj = JSON.parse(line);
+              log(obj);
+            } catch {
+              log("<< non-JSON >> " + line);
+            }
+          }
+        }
+      } catch (e) {
+        log("Read error: " + e.message);
+      }
+    }
+
+    async function closePort() {
+      $("status").textContent = "Closing…";
+      try {
+        if (reader) { try { await reader.cancel(); } catch {} try { reader.releaseLock(); } catch {} reader = null; }
+        if (writer) { try { await writer.close(); } catch {} try { writer.releaseLock(); } catch {} writer = null; }
+        try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch {}
+        if (port) { try { await port.close(); } catch {} port = null; }
+      } finally {
+        $("connect").disabled = false;
+        $("disconnect").disabled = true;
+        $("sendRaw").disabled = true;
+        $("btnWrite").disabled = true;
+        $("btnRead").disabled = true;
+        $("status").textContent = "Not connected";
+        log("Disconnected.");
+      }
+    }
+
+    async function sendJSON(obj) {
+      if (!writer) return;
+      const data = new TextEncoder().encode(JSON.stringify(obj) + "\n");
+      await writer.write(data);
+      log(">> " + JSON.stringify(obj));
+    }
+
+    // UI wiring
+    $("connect").addEventListener("click", async () => {
+      try { await openPort(); } catch (e) { log("Connect error: " + e.message); }
+    });
+
+    $("disconnect").addEventListener("click", async () => {
+      try { await closePort(); } catch (e) { log("Close error: " + e.message); }
+    });
+
+    $("sendRaw").addEventListener("click", async () => {
+      try {
+        const obj = JSON.parse($("raw").value);
+        await sendJSON(obj);
+      } catch {
+        alert("Invalid JSON.");
+      }
+    });
+
+    $("btnWrite").addEventListener("click", async () => {
+      const addr = (+$("addr").value)|0;
+      const reg = (+$("reg").value)|0;
+      const hex = $("dataHex").value.trim().split(/\s+/).filter(Boolean);
+      const data = hex.map(h => parseInt(h, 16) & 0xFF);
+      await sendJSON({ op: "i2c_write", addr, reg, data });
+    });
+
+    $("btnRead").addEventListener("click", async () => {
+      const addr = (+$("addr").value)|0;
+      const reg = (+$("reg").value)|0;
+      const length = (+$("readLen").value)|0;
+      await sendJSON({ op: "i2c_read", addr, reg, length });
+    });
+
+    $("clearLog").addEventListener("click", () => { $("log").value = ""; });
+    window.addEventListener("beforeunload", async () => { try { await closePort(); } catch {} });
+  </script>
+</body>
+</html>

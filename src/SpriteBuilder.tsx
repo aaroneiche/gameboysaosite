@@ -1,6 +1,6 @@
-import { Dotting, useData, useDotting, useBrush } from "dotting";
+import { Dotting, useData, useDotting } from "dotting";
 import type { DottingRef, PixelModifyItem, } from "dotting";
-import {useState, useRef, useEffect } from "react";
+import {useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 
 const CreateEmptySquareData = (
   size: number,
@@ -9,17 +9,25 @@ const CreateEmptySquareData = (
   for (let i = 0; i < size; i++) {
     const row: Array<PixelModifyItem> = [];
     for (let j = 0; j < size; j++) {
-      row.push({ rowIndex: i, columnIndex: j, color: "" });
+      row.push({ rowIndex: i, columnIndex: j, color: "#FFFFFF" });
     }
     data.push(row);
   }
   return data;
 }; 
 
-const PixelEditor = (props: { currentColor: string; dataCallback: Function }) => {
-  const ref = useRef<DottingRef>(null);
 
-  const { dataArray } = useData(ref);
+const PixelEditor = forwardRef((props: { currentColor: string; dataCallback: Function}, ref) => {
+  const dottingRef = useRef<DottingRef>(null);
+
+  const { dataArray } = useData(dottingRef);
+  const { setData } = useDotting(dottingRef);
+
+  useImperativeHandle(ref, ()=>({
+    changePixelData(dottingPixels: Array<Array<PixelModifyItem>>) {
+      setData(dottingPixels)
+    }
+  }));
 
   const initialLayer = [
     {
@@ -34,7 +42,7 @@ const PixelEditor = (props: { currentColor: string; dataCallback: Function }) =>
 
   return (
     <Dotting
-      ref={ref}
+      ref={dottingRef}
       width={300}
       height={300}
       isGridFixed={true}
@@ -43,7 +51,7 @@ const PixelEditor = (props: { currentColor: string; dataCallback: Function }) =>
       brushColor={props.currentColor}
     />
   );
-};
+});
 
 export default function SpriteBuilder() {
   // RED = 0x00F8   #e6003a
@@ -64,6 +72,8 @@ export default function SpriteBuilder() {
   
   const [currentColor, setCurrentColor] = useState<palette>(currentPalette);
   
+  const [editorVisible, setEditorVisible] = useState<boolean>(false);
+
   const colorSelector = currentPalette.map((c) => (
     <button
       onClick={() => {
@@ -76,12 +86,9 @@ export default function SpriteBuilder() {
   ));
 
   const [spriteBytes, setSpriteBytes] = useState<number[]>([]);
-  const formattedBytes = spriteBytes
-    .map((b) => {
-      return "0x" + b.toString(16).padStart(2, "0");
-    })
-    .join(", ");
-
+  const formattedBytes = spriteBytes.map(b=>{
+      return "0x" + b.toString(16);
+  }).join(", ");
 
   function hexToBRG(color: string) {
     const r = Math.round((Number(`0x${color.substring(1, 3)}`) / 255) * 31);
@@ -93,37 +100,138 @@ export default function SpriteBuilder() {
     return `${rgb565.substring(2, 4)}${rgb565.substring(0, 2)}`;
   }
 
-  const processData = (input: Array<Array<PixelModifyItem>>) => {
-    const upperBytes: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
-    const lowerBytes: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
+  function getCurrentColorFromBitVal(bitVal:number):string {
+    return currentPalette[bitVal];
+  }
 
-    input.forEach((byte, b) => {
+
+  function blockToHex(val: string) {
+    const bytes  = val.split(", ");
+    console.log(bytes);
+    const outputPixelGrid: PixelModifyItem[][] = [];
+
+    //each row
+    for (let i = 0; i < 8; i ++) {
+      // 2 bytes per row
+      const p1 =  Number(bytes[2 * i + 1]) & 0x3;
+      const p2 = (Number(bytes[2 * i + 1]) & 0xc) >> 2;
+      const p3 = (Number(bytes[2 * i + 1]) & 0x30) >> 4 
+      const p4 = (Number(bytes[2 * i + 1]) & 0xc0) >> 6;
+      const p5 = (Number(bytes[2 * i]) & 0x3);
+      const p6 = (Number(bytes[2 * i]) & 0xc) >> 2;
+      const p7 = (Number(bytes[2 * i]) & 0x30) >> 4
+      const p8 = (Number(bytes[2 * i]) & 0xc0) >> 6;
+
+      console.log(p1);
+
+      
+      // getCurrentColorFromBitVal(p1);
+      outputPixelGrid[i] = [
+        { rowIndex: i, columnIndex: 1, color: getCurrentColorFromBitVal(p1) },
+        { rowIndex: i, columnIndex: 2, color: getCurrentColorFromBitVal(p2) },
+        { rowIndex: i, columnIndex: 3, color: getCurrentColorFromBitVal(p3) },
+        { rowIndex: i, columnIndex: 4, color: getCurrentColorFromBitVal(p4) },
+        { rowIndex: i, columnIndex: 5, color: getCurrentColorFromBitVal(p5) },
+        { rowIndex: i, columnIndex: 6, color: getCurrentColorFromBitVal(p6) },
+        { rowIndex: i, columnIndex: 7, color: getCurrentColorFromBitVal(p7) },
+        { rowIndex: i, columnIndex: 8, color: getCurrentColorFromBitVal(p8) },
+      ];
+    }
+
+    console.log(outputPixelGrid);
+
+    return outputPixelGrid;
+  }
+
+  const ignoreMe = (input: Array<Array<PixelModifyItem>>) => {
+    /* 
+      //A typical Row.
+      [{row:0, column:0, color: "#FFFFFF"}],
+      [{row:0, column:0, color: "#FFFFFF"}],
+      [{row:0, column:0, color: "#FFFFFF"}],
+      [{row:0, column:0, color: "#FFFFFF"}],
+      [{row:0, column:0, color: "#FFFB86"}],
+      [{row:0, column:0, color: "#FFFB86"}],
+      [{row:0, column:0, color: "#FFFB86"}],
+      [{row:0, column:0, color: "#FFFB86"}],
+    */
+
+    const byteSet:number[] = [];
+
+    input.forEach((byte) => {
+      let outputBytes = 0;
+
+      // The bits are laid out from left to right. We need bits littleEndian
+      // start with the "last" (furthest left) pixel in the row first
       for (let i = 7; i >= 0; i--) {
-        const val = currentPalette.indexOf(byte[i].color);
-        if (val >= 0) {
-          upperBytes[b] |= ((val & 2) >> 1) << (7 - i);
-          lowerBytes[b] |= (val & 1) << (7 - i);
-        } else {
-          upperBytes[b] |= 0;
-          lowerBytes[b] |= 0;
-        }
+        // We get a 0, 1, 2, or 3
+        let colorIndex = currentPalette.indexOf(byte[i].color);
+        colorIndex = colorIndex === -1 ? 0 : colorIndex;
+        const theseBits = colorIndex << (2 * (7-i));
+
+        outputBytes |= theseBits;
       }
+      byteSet.push((outputBytes & 0xff00) >> 8); //Second Byte
+      byteSet.push(outputBytes & 0x00ff); //First Byte
     });
 
-    setSpriteBytes([...lowerBytes, ...upperBytes]);
+    setSpriteBytes(byteSet);
   };
+
+  const copyArray = () => {
+    navigator.clipboard.writeText(formattedBytes);
+  };
+
+  const childRef = useRef(null);
+
+  const handleChangePixels = (arg) => {
+    childRef.current?.changePixelData(arg);
+
+  }
+
+
+  const test = CreateEmptySquareData(8);
+  
+  const [textContents, setTextContents] = useState("");
+
+  useEffect(()=>{
+    console.log(textContents);
+  },[textContents])
+
 
   return (
     <>
       <div> This is the sprite builder</div>
-      <div id="paletteSelector"></div>
+      <div id="paletteSelector">{colorSelector}</div>
       <div style={{ display: "flex" }}>
-        <PixelEditor currentColor={currentColor} dataCallback={processData} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {colorSelector}
-        </div>
+        <PixelEditor
+          currentColor={currentColor}
+          dataCallback={ignoreMe}
+          ref={childRef}
+        />
       </div>
-      <textarea name="spriteOutput" id="" value={formattedBytes} style={{width: "296px", height: "70px"}}></textarea>
+      <div
+        id=""
+        style={{
+          width: "300px",
+          height: "70px",
+          fontFamily: "monospace",
+          display: `${editorVisible === true ? "none" : "block"}`,
+        }}
+        onClick={() => {
+          console.log("huh?");
+          setEditorVisible(false);
+        }}
+      >
+        {formattedBytes}
+      </div>
+      <textarea
+        name="editor"
+        id=""
+        onChange={(v)=>{console.log(v.target.value);setTextContents(v.target.value)}}
+      ></textarea>
+      <button onClick={() => copyArray()}>Copy</button>
+      <button onClick={() => {handleChangePixels(blockToHex(textContents));}}>Load Bytes</button>
     </>
   );
 }
