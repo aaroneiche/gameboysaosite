@@ -18,6 +18,20 @@
     legend { padding: 0 6px; }
     .status { margin-left: 8px; font-weight: 600; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+
+      /* Side-by-side layout for I²C + Upload blocks */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+      @media (max-width: 800px) {
+        .split { grid-template-columns: 1fr; }
+      }
+
+
   </style>
 </head>
 <body>
@@ -28,6 +42,9 @@
     <button id="disconnect" disabled>Disconnect</button>
     <span id="status" class="status">Not connected</span>
   </div>
+
+  <div class="split">
+
 
   <fieldset>
     <legend>I²C helpers</legend>
@@ -44,6 +61,22 @@
       <button id="btnRead" disabled>i2c_read</button>
     </div>
   </fieldset>
+
+  <fieldset>
+    <legend>Upload & Flash</legend>
+    <div class="row">
+      <input id="file" type="file" />
+      <label>Chunk bytes: <input id="chunkSize" type="number" min="128" max="8192" value="1024"></label>
+      <label><input id="verifySha" type="checkbox" checked> Verify SHA-256</label>
+      <label><input id="autoFlash" type="checkbox" checked> Auto-flash after upload</label>
+    </div>
+    <div class="row">
+      <button id="btnUpload" disabled>Upload & Flash</button>
+      <span id="uStatus" class="muted"></span>
+    </div>
+    <progress id="prog" max="1" value="0"></progress>
+  </fieldset>
+  </div>
 
   <fieldset>
     <legend>Incoming (JSON lines from Pico)</legend>
@@ -63,6 +96,8 @@
   </fieldset>
 
 
+
+  
   <script>
     let port, reader, writer;
     let readAbort = null;
@@ -102,6 +137,9 @@
       $("btnWrite").disabled = false;
       $("btnRead").disabled = false;
       $("status").textContent = "Connected";
+
+      $("btnUpload").disabled = false;
+
       log("Connected.");
 
       readLoop();
@@ -126,7 +164,8 @@
             if (!line) continue;
             try {
               const obj = JSON.parse(line);
-              log(obj);
+              handleIncoming(obj);
+
             } catch {
               log("<< non-JSON >> " + line);
             }
@@ -150,10 +189,47 @@
         $("sendRaw").disabled = true;
         $("btnWrite").disabled = true;
         $("btnRead").disabled = true;
+
+        $("btnUpload").disabled = true;
+
         $("status").textContent = "Not connected";
         log("Disconnected.");
       }
     }
+
+    //let port, reader, writer; // (keep your originals)
+    const waiting = new Map(); // for per-step ACK routing
+
+    function awaitAck(key) {
+      return new Promise((resolve, reject) => {
+        waiting.set(key, resolve);
+        setTimeout(() => {
+          if (waiting.get(key)) {
+            waiting.delete(key);
+            reject(new Error("Timeout waiting for " + key));
+          }
+        }, 15000); // 15s step timeout
+      });
+    }
+
+    function handleIncoming(obj) {
+      // Route upload ACKs first
+      if (obj && obj.ack) {
+        const key =
+          obj.ack === "file_begin" ? "file_begin" :
+          obj.ack === "file_end"   ? "file_end"   :
+          obj.ack === "file_chunk" ? `file_chunk:${obj.seq}` : null;
+        if (key && waiting.has(key)) {
+          const res = waiting.get(key);
+          waiting.delete(key);
+          res(obj);
+          return;
+        }
+      }
+      // Fall back to your normal logging
+      log(obj);
+    }
+
 
     async function sendJSON(obj) {
       if (!writer) return;
@@ -162,6 +238,52 @@
       log(">> " + JSON.stringify(obj));
     }
 
+    async function uploadAndFlash() {
+      const file = $("file").files?.[0];
+      if (!file) { alert("Choose a file first."); return; }
+
+      const chunkSize = Math.min(Math.max((+$("chunkSize").value)|0, 128), 8192);
+      const verify = $("verifySha").checked;
+      const autoFlash = $("autoFlash").checked;
+
+      $("uStatus").textContent = "Hashing…";
+      const buf = await file.arrayBuffer();
+      const size = buf.byteLength;
+
+      let shaHex = null;
+      if (verify && crypto?.subtle?.digest) {
+        const hash = await crypto.subtle.digest("SHA-256", buf);
+        shaHex = [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, "0")).join("");
+      }
+
+      // Begin
+      $("uStatus").textContent = "Starting upload…";
+      await sendJSON({ op: "file_begin", name: file.name, size, sha256: shaHex, auto_flash: autoFlash });
+      await awaitAck("file_begin");
+
+      const u8 = new Uint8Array(buf);
+      let sent = 0, seq = 0;
+      $("prog").max = size; $("prog").value = 0;
+
+      while (sent < size) {
+        const n = Math.min(chunkSize, size - sent);
+        const chunk = u8.subarray(sent, sent + n);
+        // base64 encode (chunk size is clamped to keep this safe)
+        const b64 = btoa(String.fromCharCode.apply(null, chunk));
+        await sendJSON({ op: "file_chunk", seq, b64 });
+        await awaitAck(`file_chunk:${seq}`);
+        sent += n; seq++;
+        $("prog").value = sent;
+        $("uStatus").textContent = `Uploading… ${sent}/${size} bytes`;
+      }
+
+      await sendJSON({ op: "file_end" });
+      const endAck = await awaitAck("file_end");
+
+      $("uStatus").textContent = endAck?.ok ? (autoFlash ? "Uploaded; flashing…" : "Upload complete.") : "Upload finished with errors.";
+    }
+
+    
     // UI wiring
     $("connect").addEventListener("click", async () => {
       try { await openPort(); } catch (e) { log("Connect error: " + e.message); }
@@ -196,7 +318,16 @@
     });
 
     $("clearLog").addEventListener("click", () => { $("log").value = ""; });
-    window.addEventListener("beforeunload", async () => { try { await closePort(); } catch {} });
+    window.addEventListener("beforeunload", async () => { try { await closePort(); } catch {} }); 
+
+    $("btnUpload").addEventListener("click", async () => {
+      try { await uploadAndFlash(); }
+      catch (e) { $("uStatus").textContent = e.message; log("Upload error: " + e.message); }
+    });
+
+
+
+
   </script>
 </body>
 </html>

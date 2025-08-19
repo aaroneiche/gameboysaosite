@@ -3,7 +3,7 @@ import './App.css'
 import Navigation from './Navigation'
 import { BrowserRouter as Router, Routes, Route, Outlet} from "react-router-dom";
 import SpriteBuilder from './SpriteBuilder';
-
+import SpriteGrouper from './ExperimentalBuilder';
 
 
 function App() {
@@ -56,6 +56,7 @@ function App() {
           <Route index element={<MyPage />} />
           <Route path="/other" element={<OtherPage />} />
           <Route path="/spritebuilder" element={<SpriteBuilder />} />
+          <Route path="/exbuilder" element={<SpriteGrouper />} />
         </Route>
       </Routes>
     </Router>

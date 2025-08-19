@@ -21,7 +21,7 @@ const PixelEditor = forwardRef((props: { currentColor: string; dataCallback: Fun
   const dottingRef = useRef<DottingRef>(null);
 
   const { dataArray } = useData(dottingRef);
-  const { setData } = useDotting(dottingRef);
+  const { setData, downloadImage } = useDotting(dottingRef);
 
   useImperativeHandle(ref, ()=>({
     changePixelData(dottingPixels: Array<Array<PixelModifyItem>>) {
@@ -41,15 +41,19 @@ const PixelEditor = forwardRef((props: { currentColor: string; dataCallback: Fun
   }, [dataArray]);
 
   return (
-    <Dotting
-      ref={dottingRef}
-      width={300}
-      height={300}
-      isGridFixed={true}
-      isPanZoomable={false}
-      initLayers={initialLayer}
-      brushColor={props.currentColor}
-    />
+    <>
+      <button onClick={()=>{downloadImage({type:"svg"})}}></button>
+      <Dotting
+        ref={dottingRef}
+        width={300}
+        height={300}
+        isGridFixed={true}
+        isPanZoomable={false}
+        initLayers={initialLayer}
+        brushColor={props.currentColor}
+      />
+    </>
+    
   );
 });
 
@@ -197,7 +201,6 @@ export default function SpriteBuilder() {
 
   return (
     <>
-      <div> This is the sprite builder</div>
       <div id="paletteSelector">{colorSelector}</div>
       <div style={{ display: "flex" }}>
         <PixelEditor
