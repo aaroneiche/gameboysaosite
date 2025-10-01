@@ -1,10 +1,11 @@
 import { Dotting, useData, useDotting } from "dotting";
 import type { DottingRef, PixelModifyItem, } from "dotting";
 import {useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useLocalStorage } from "@uidotdev/usehooks";
 
-const CreateEmptySquareData = (
-  size: number,
-): Array<Array<PixelModifyItem>> => {
+import { SpriteGrid } from "./SpriteGrid";
+
+const CreateEmptySquareData = (  size: number,): Array<Array<PixelModifyItem>> => {
   const data: Array<Array<PixelModifyItem>> = [];
   for (let i = 0; i < size; i++) {
     const row: Array<PixelModifyItem> = [];
@@ -42,11 +43,10 @@ const PixelEditor = forwardRef((props: { currentColor: string; dataCallback: Fun
 
   return (
     <>
-      <button onClick={()=>{downloadImage({type:"svg"})}}></button>
       <Dotting
         ref={dottingRef}
-        width={300}
-        height={300}
+        width={288}
+        height={288}
         isGridFixed={true}
         isPanZoomable={false}
         initLayers={initialLayer}
@@ -90,6 +90,21 @@ export default function SpriteBuilder() {
   ));
 
   const [spriteBytes, setSpriteBytes] = useState<number[]>([]);
+  const [storedSprites, setStoredSprites] = useLocalStorage('storedSprites',[
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+    [],[],[],[],[],[],[],[],
+  ]);
+
+
+
+  const [currentSprite, setCurrentSprite] = useState(0);
+
   const formattedBytes = spriteBytes.map(b=>{
       return "0x" + b.toString(16);
   }).join(", ");
@@ -107,7 +122,6 @@ export default function SpriteBuilder() {
   function getCurrentColorFromBitVal(bitVal:number):string {
     return currentPalette[bitVal];
   }
-
 
   function blockToHex(val: string) {
     const bytes  = val.split(", ");
@@ -147,7 +161,14 @@ export default function SpriteBuilder() {
     return outputPixelGrid;
   }
 
-  const ignoreMe = (input: Array<Array<PixelModifyItem>>) => {
+  function toSimpleColorArray(sprite: Array<Array<PixelModifyItem>>){
+    return sprite.map(s=>s.map(r=>r.color));
+  };
+
+  /* 
+    Gets called on a pixel update. 
+  */
+  const pixelUpdateCallback = (input: Array<Array<PixelModifyItem>>) => {
     /* 
       //A typical Row.
       [{row:0, column:0, color: "#FFFFFF"}],
@@ -160,7 +181,13 @@ export default function SpriteBuilder() {
       [{row:0, column:0, color: "#FFFB86"}],
     */
 
-    const byteSet:number[] = [];
+    const newSprites = [...storedSprites];
+    newSprites[currentSprite] = input;
+
+
+    setStoredSprites(newSprites);
+
+    const byteSet: number[] = [];
 
     input.forEach((byte) => {
       let outputBytes = 0;
@@ -171,7 +198,7 @@ export default function SpriteBuilder() {
         // We get a 0, 1, 2, or 3
         let colorIndex = currentPalette.indexOf(byte[i].color);
         colorIndex = colorIndex === -1 ? 0 : colorIndex;
-        const theseBits = colorIndex << (2 * (7-i));
+        const theseBits = colorIndex << (2 * (7 - i));
 
         outputBytes |= theseBits;
       }
@@ -194,43 +221,68 @@ export default function SpriteBuilder() {
 
   const [textContents, setTextContents] = useState("");
 
+  const handleSelectSprite = (spriteId) => {
+    console.log(spriteId);
+    // pixelUpdateCallback(storedSprites[spriteId]);
+    handleChangePixels(storedSprites[spriteId]);
+    setCurrentSprite(spriteId);
+  }
+
+  useEffect(()=>{
+    // console.log(storedSprites);    
+  },[storedSprites, setStoredSprites])
+
   useEffect(()=>{
     console.log(textContents);
   },[textContents])
 
 
   return (
-    <>
-      <div id="paletteSelector">{colorSelector}</div>
-      <div style={{ display: "flex" }}>
-        <PixelEditor
-          currentColor={currentColor}
-          dataCallback={ignoreMe}
-          ref={childRef}
-        />
+    <div className="sideBySide">
+      <div style={{marginTop: "60px", marginRight:"10px" }}>
+        <SpriteGrid sprites={storedSprites} palette={currentPalette} onSelect={handleSelectSprite}/>
       </div>
-      <div
-        id=""
-        style={{
-          width: "300px",
-          height: "70px",
-          fontFamily: "monospace",
-          display: `${editorVisible === true ? "none" : "block"}`,
-        }}
-        onClick={() => {
-          console.log("huh?");
-          setEditorVisible(false);
-        }}
-      >
-        {formattedBytes}
+      <div>
+        <div id="paletteSelector">{colorSelector}</div>
+        <div style={{ display: "flex" }}>
+          <PixelEditor
+            currentColor={currentColor}
+            dataCallback={pixelUpdateCallback}
+            ref={childRef}
+          />
+        </div>
+        <div
+          id=""
+          style={{
+            width: "300px",
+            height: "70px",
+            fontFamily: "monospace",
+            display: `${editorVisible === true ? "none" : "block"}`,
+          }}
+          onClick={() => {
+            console.log("huh?");
+            setEditorVisible(false);
+          }}
+        >
+          {formattedBytes}
+        </div>
+        <textarea
+          name="editor"
+          id=""
+          onChange={(v) => {
+            console.log(v.target.value);
+            setTextContents(v.target.value);
+          }}
+        ></textarea>
+        <button onClick={() => copyArray()}>Copy</button>
+        <button
+          onClick={() => {
+            handleChangePixels(blockToHex(textContents));
+          }}
+        >
+          Load Bytes
+        </button>
       </div>
-      <textarea
-        name="editor"
-        id=""
-        onChange={(v)=>{console.log(v.target.value);setTextContents(v.target.value)}}
-      ></textarea>
-      <button onClick={() => copyArray()}>Copy</button>
-      <button onClick={() => {handleChangePixels(blockToHex(textContents));}}>Load Bytes</button>
-    </>
+    </div>
   );
 }
