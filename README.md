@@ -4,6 +4,13 @@ This is a support/instruction website for the Gameboy SAO I'm making to take to 
 This site isn't in a finished state, so that's why there's no link to it. When I have it up, this message will change.
 The general instructions below are just default for React and Vite.
 
+# Thanks
+  - Jimmy Campbell's Early Gameboy Font (https://www.dafont.com/early-gameboy.font)
+
+
+
+
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

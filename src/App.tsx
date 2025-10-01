@@ -3,8 +3,8 @@ import './App.css'
 import Navigation from './Navigation'
 import { BrowserRouter as Router, Routes, Route, Outlet} from "react-router-dom";
 import SpriteBuilder from './SpriteBuilder';
-import SpriteGrouper from './ExperimentalBuilder';
-
+import { CharacterBuilder } from './CharacterBuilder';
+import { BackgroundBuilder } from './BackgroundBuilder';
 
 function App() {
   const [count, setCount] = useState(0)
@@ -27,24 +27,14 @@ function App() {
     );
   }
 
-  const OtherPage = () => {
-    return (
-      <>
-        
-        <div>This is just a page. </div>
-
-      </>
-    );
-  }
-
-
-
   function Layout(){
       return (
-        <>
-          <Navigation />
-          <Outlet />
-        </>
+        <div className="gbWrapper">
+          <div className="screen">
+            <Navigation />
+            <Outlet />
+          </div>
+        </div>
       );
   }
 
@@ -54,9 +44,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout/>}>
           <Route index element={<MyPage />} />
-          <Route path="/other" element={<OtherPage />} />
           <Route path="/spritebuilder" element={<SpriteBuilder />} />
-          <Route path="/exbuilder" element={<SpriteGrouper />} />
+          <Route path="/characterbuilder" element={<CharacterBuilder />} />
+          <Route path="/backgroundbuilder" element={<BackgroundBuilder />} />
         </Route>
       </Routes>
     </Router>

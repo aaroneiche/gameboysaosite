@@ -67,6 +67,44 @@ button:focus-visible {
   }
 }
 
+@font-face {
+    font-family: 'EarlyGameBoy'; /*a name to be used later*/
+    src: url('./EarlyGameBoy.ttf');; /*URL to font*/
+}
+
+.nav {
+  font-family: 'EarlyGameBoy';
+  display: flex;
+  justify-content: center;
+  font-size: 18pt;
+}
+
+.nav a {
+  color: black;
+}
+
+.nav a:hover {
+  text-decoration: underline;
+}
+
+.gbWrapper {
+  border-radius: 30px 30px 80px 30px;
+  background-color: darkgrey;
+  /* padding: 80px; */
+  padding-left:80px;
+  padding-right: 80px;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+
+.screen {
+  /* background-color: #fffb84; */
+  background-color: #adaa63;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+
 .sideBySide {
   display: flex;
   flex-direction: row;

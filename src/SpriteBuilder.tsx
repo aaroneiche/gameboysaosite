@@ -184,7 +184,6 @@ export default function SpriteBuilder() {
     const newSprites = [...storedSprites];
     newSprites[currentSprite] = input;
 
-
     setStoredSprites(newSprites);
 
     const byteSet: number[] = [];
@@ -222,9 +221,7 @@ export default function SpriteBuilder() {
   const [textContents, setTextContents] = useState("");
 
   const handleSelectSprite = (spriteId) => {
-    console.log(spriteId);
-    // pixelUpdateCallback(storedSprites[spriteId]);
-    handleChangePixels(storedSprites[spriteId]);
+    handleChangePixels((storedSprites[spriteId].length !== 0)? storedSprites[spriteId]:CreateEmptySquareData(8));
     setCurrentSprite(spriteId);
   }
 
