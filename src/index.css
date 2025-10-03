@@ -108,10 +108,42 @@ button:focus-visible {
 .sideBySide {
   display: flex;
   flex-direction: row;
+  justify-content: space-between;
+
+  & .sbsBlock {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
 }
 
 /* Hover over  */
 .grid div canvas:hover {
   border: solid lightblue 2px;
   box-sizing: border-box;
+}
+
+.pixelEditorBlock{
+  display: flex;
+  flex-direction: row;
+  
+  & > div {
+    margin-right: 4px;
+  }
+}
+
+#paletteSelector {
+  display:flex;
+  flex-direction: column;
+  justify-content: space-around;
+
+  & button {
+    padding: 3px;
+    align-self: center;
+    border: solid black 2px;
+
+    & div {
+      border-radius: 5px;
+    }
+  }
 }

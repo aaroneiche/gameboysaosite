@@ -236,33 +236,26 @@ export default function SpriteBuilder() {
 
   return (
     <div className="sideBySide">
-      <div style={{marginTop: "60px", marginRight:"10px" }}>
-        <SpriteGrid sprites={storedSprites} palette={currentPalette} onSelect={handleSelectSprite}/>
+      <div className={"sbsBlock"}>
+        <SpriteGrid
+          scale={6}
+          sprites={storedSprites}
+          palette={currentPalette}
+          onSelect={handleSelectSprite}
+        />
       </div>
-      <div>
-        <div id="paletteSelector">{colorSelector}</div>
-        <div style={{ display: "flex" }}>
-          <PixelEditor
-            currentColor={currentColor}
-            dataCallback={pixelUpdateCallback}
-            ref={childRef}
-          />
+      <div className={"sbsBlock"}>
+        <div className="pixelEditorBlock">
+          <div style={{ display: "flex" }}>
+            <PixelEditor
+              currentColor={currentColor}
+              dataCallback={pixelUpdateCallback}
+              ref={childRef}
+            />
+          </div>
+          <div id="paletteSelector">{colorSelector}</div>
         </div>
-        <div
-          id=""
-          style={{
-            width: "300px",
-            height: "70px",
-            fontFamily: "monospace",
-            display: `${editorVisible === true ? "none" : "block"}`,
-          }}
-          onClick={() => {
-            console.log("huh?");
-            setEditorVisible(false);
-          }}
-        >
-          {formattedBytes}
-        </div>
+
         <textarea
           name="editor"
           id=""
@@ -271,14 +264,16 @@ export default function SpriteBuilder() {
             setTextContents(v.target.value);
           }}
         ></textarea>
-        <button onClick={() => copyArray()}>Copy</button>
-        <button
-          onClick={() => {
-            handleChangePixels(blockToHex(textContents));
-          }}
-        >
-          Load Bytes
-        </button>
+        <div>
+          <button onClick={() => copyArray()}>Copy</button>
+          <button
+            onClick={() => {
+              handleChangePixels(blockToHex(textContents));
+            }}
+          >
+            Load Bytes
+          </button>
+        </div>
       </div>
     </div>
   );

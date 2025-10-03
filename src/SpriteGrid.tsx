@@ -29,7 +29,7 @@ function drawChecker(ctx: CanvasRenderingContext2D, w: number, h: number, tile =
 export function SpriteThumb({
   sprite,
   palette,
-  scale = 4, // each pixel becomes scale x scale canvas pixels
+  scale = 6, // each pixel becomes scale x scale canvas pixels
   border = true,
   rounded = true,
   className = "",}: 
@@ -185,6 +185,7 @@ export function SpriteGrid({
         }
         return next;
       });
+
     },
     [onReorder, sprites]
   );
