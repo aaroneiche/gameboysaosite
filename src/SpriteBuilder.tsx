@@ -233,7 +233,6 @@ export default function SpriteBuilder() {
     console.log(textContents);
   },[textContents])
 
-
   return (
     <div className="sideBySide">
       <div className={"sbsBlock"}>
@@ -243,6 +242,10 @@ export default function SpriteBuilder() {
           palette={currentPalette}
           onSelect={handleSelectSprite}
         />
+        <div>
+          <button>Character Sprites</button>
+          <button>Background Sprites</button>
+        </div>
       </div>
       <div className={"sbsBlock"}>
         <div className="pixelEditorBlock">

@@ -4,10 +4,10 @@ export default function Navigation() {
 
     return (
       <div className="nav">
-        <Link to="/">Home</Link> - 
-        <Link to="/spritebuilder">Sprites</Link> -  
-        <Link to="/characterbuilder">Characters</Link> - 
-        <Link to="/backgroundbuilder">Backgrounds</Link>
+        <Link to="/">Home</Link> -
+        <Link to="gettingstarted">Getting Started</Link> - 
+        <Link to="reference">Reference</Link> -  
+        <Link to="/spritebuilder">Sprite Builder</Link>
       </div>
     );
 }
