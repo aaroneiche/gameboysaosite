@@ -116,7 +116,7 @@ export default function SpriteBuilder() {
     const rgb = (r << 11) | (g << 5) | b;
 
     const rgb565 = rgb.toString(16).padStart(4,"0");
-    return `${rgb565.substring(2, 4)}${rgb565.substring(0, 2)}`;
+    return `${rgb565.substring(0, 2)}${rgb565.substring(2, 4)}`;
   }
 
   function getCurrentColorFromBitVal(bitVal:number):string {
