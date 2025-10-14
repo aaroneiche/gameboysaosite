@@ -34,7 +34,7 @@ export function SpriteThumb({
   rounded = true,
   className = "",}: 
   {
-  sprite: Sprite8;
+  sprite: any;
   palette: Palette;
   scale?: number;
   border?: boolean;
@@ -58,8 +58,12 @@ export function SpriteThumb({
     // draw pixels
     for (let y = 0; y < 8; y++) {
       for (let x = 0; x < 8; x++) {
-        const color = sprite[y]?.[x].color ?? 0;
-        if (color === "transparent") continue;
+        // const color = sprite[y]?.[x].color ?? 0;
+        if(!sprite.pixels) continue;
+
+        const color = palette[sprite.pixels[(y*8)+ x]];
+
+        // if (color === "transparent") continue;
         ctx.fillStyle = color;
         ctx.fillRect(x * scale, y * scale, scale, scale);
       }
