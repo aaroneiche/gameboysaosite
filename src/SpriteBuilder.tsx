@@ -18,6 +18,16 @@ const CreateEmptySquareData = (  size: number,): Array<Array<PixelModifyItem>> =
 }; 
 
 
+const generateSpritePage = () => {
+  const page = new Map();
+  for(let i = 0; i < 64; i++) {
+    page.set(i, {pixels:[]});
+  }
+  return page;
+}
+
+
+
 const PixelEditor = forwardRef((props: { currentColor: string; dataCallback: Function}, ref) => {
   const dottingRef = useRef<DottingRef>(null);
 
@@ -90,17 +100,16 @@ export default function SpriteBuilder() {
     </button>
   ));
 
+  const defaultNewPage = generateSpritePage();
+
   const [spriteBytes, setSpriteBytes] = useState<number[]>([]);
-  const [storedSprites, setStoredSprites] = useLocalStorage("storedSprites",[
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-    [],[],[],[],[],[],[],[],
-  ]);
+  const [storedSprites, setStoredSprites] = useLocalStorage<
+    Map<number, { pixels: number[] }>
+  >("storedSprites", defaultNewPage);
+  const [spriteOrder, setSpriteOrder] = useLocalStorage<number[]>(
+    "spriteOrder",
+    []
+  );
 
   const [currentSprite, setCurrentSprite] = useState(0);
 
@@ -256,6 +265,13 @@ export default function SpriteBuilder() {
     setCurrentSprite(gridPosition);
   };
 
+  // Ensure "order" always has something valid
+  useEffect(() => {
+    if (spriteOrder.length === 0 && storedSprites.size > 0) {
+      setSpriteOrder(Array.from(storedSprites.keys()));
+    }
+  }, [spriteOrder, storedSprites]);
+
   return (
     <div>
       <div className="sideBySide">
@@ -264,6 +280,7 @@ export default function SpriteBuilder() {
             scale={6}
             sprites={storedSprites}
             palette={currentPalette}
+            order={spriteOrder}
             onSelect={handleSelectSprite}
           />
           <div>

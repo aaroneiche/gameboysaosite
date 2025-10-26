@@ -1,6 +1,6 @@
 // A component for arranging and displaying the sprite grid
 //
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 
 /**
  * Minimal types: an 8x8 sprite where each cell is a palette index (0..N-1).
@@ -141,83 +141,69 @@ function DraggableThumb({
  * SpriteGrid — shows many SpriteThumbs in a responsive grid and supports drag-to-reorder.
  */
 export function SpriteGrid({
-  sprites,
+  spritesMap,
+  order,
+  onOrderChange,
   palette,
   cols = 8,
   scale = 4,
-  gap = 4,
-  onReorder,
+  gap = 8,
   onSelect,
-  selectedIndex,
-  className = "", 
-}: 
-  {
-  sprites: Sprite8[];
+  selectedId,
+  className = "",
+}: {
+  /** Source of truth: Map of id -> sprite */
+  spritesMap: Map<string, SpriteRecord>;
+  /** Controlled order of ids */
+  order: number[];
+  /** Notify parent with the next order */
+  onOrderChange: (nextOrder: string[]) => void;
   palette: Palette;
   cols?: number;
   scale?: number;
-  gap?: number; // px gap between cells
-  onReorder?: (nextSprites: Sprite8[]) => void;
-  onSelect?: (index: number) => void;
-  selectedIndex?: number | null;
+  gap?: number;
+  onSelect?: (id: string) => void;
+  selectedId?: string | null;
   className?: string;
-}) 
-  {
-  const [order, setOrder] = useState<number[]>(() => sprites.map((_, i) => i));
-
-  // keep order length in sync if sprites change externally
-  useEffect(() => {
-    setOrder((prev) => {
-      if (prev.length === sprites.length) return prev;
-      return sprites.map((_, i) => i);
-    });
-  }, [sprites.length]);
-
+}) {
   const onDropSwap = useCallback(
-    (from: number, to: number) => {
-      if (from === to) return;
-      setOrder((prev) => {
-        const next = [...prev];
-        const fromPos = next.indexOf(from);
-        const toPos = next.indexOf(to);
-        if (fromPos < 0 || toPos < 0) return prev;
-        [next[fromPos], next[toPos]] = [next[toPos], next[fromPos]];
-        // propagate sprite order to parent if requested
-        if (onReorder) {
-          const reordered = next.map((idx) => sprites[idx]);
-          onReorder(reordered);
-        }
-        return next;
-      });
-
+    (fromId: string, toId: string) => {
+      if (fromId === toId) return;
+      const next = [...order];
+      const a = next.indexOf(fromId);
+      const b = next.indexOf(toId);
+      if (a < 0 || b < 0) return;
+      [next[a], next[b]] = [next[b], next[a]];
+      onOrderChange(next);
     },
-    [onReorder, sprites]
+    [order, onOrderChange]
   );
 
   return (
     <div
-      className={[
-        "grid",
-        className,
-      ].join(" ")}
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${cols}, ${8 * scale}px)`,
-        gap,
-      }}
+      className={["grid", className].join(" ")}
+      style={{ gridTemplateColumns: `repeat(${cols}, ${8 * scale}px)`, gap }}
     >
-      {order.map((spriteIdx) => (
-        <DraggableThumb
-          key={spriteIdx}
-          id={spriteIdx}
-          scale={scale}
-          isSelected={selectedIndex === spriteIdx}
-          onClick={() => onSelect?.(spriteIdx)}
-          onSwap={onDropSwap}
-        >
-          <SpriteThumb sprite={sprites[spriteIdx]} palette={palette} scale={scale} />
-        </DraggableThumb>
-      ))}
+      {order.map((id) => {
+        const sprite = spritesMap.get(id);
+        if (!sprite) return null;
+        return (
+          <DraggableThumb
+            key={id}
+            id={id}
+            scale={scale}
+            isSelected={selectedId === id}
+            onClick={() => onSelect?.(id)}
+            onSwap={onDropSwap}
+          >
+            <SpriteThumb
+              sprite={sprite.pixels}
+              palette={palette}
+              scale={scale}
+            />
+          </DraggableThumb>
+        );
+      })}
     </div>
   );
 }
